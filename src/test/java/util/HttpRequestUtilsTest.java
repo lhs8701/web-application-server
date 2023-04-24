@@ -2,11 +2,13 @@ package util;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
 
 import org.junit.Test;
 
+import org.junit.jupiter.api.DisplayName;
 import util.HttpRequestUtils.Pair;
 
 public class HttpRequestUtilsTest {
@@ -69,5 +71,21 @@ public class HttpRequestUtilsTest {
         String header = "Content-Length: 59";
         Pair pair = HttpRequestUtils.parseHeader(header);
         assertThat(pair, is(new Pair("Content-Length", "59")));
+    }
+
+    @Test
+    @DisplayName("URI에서 url과 parameter를 분리한다")
+    public void test1() {
+        // given
+        String uri = "userId=1&password=pwd&name=hello&email=hello@naver.com";
+
+        // when
+        Map<String, String> map = HttpRequestUtils.parseQueryString(uri);
+
+        // then
+        assertEquals("1", map.get("userId"));
+        assertEquals("pwd", map.get("password"));
+        assertEquals("hello", map.get("name"));
+        assertEquals("hello@naver.com", map.get("email"));
     }
 }
