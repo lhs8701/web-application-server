@@ -2,6 +2,7 @@ package webserver.subtest;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import util.IOUtils;
 
 import java.io.*;
 
@@ -102,7 +103,7 @@ public class ReaderTest {
 
     @Test
     @DisplayName("")
-    void test() {
+    void test6() {
         // given
         byte[] arr = new byte[0];
         // when
@@ -110,5 +111,35 @@ public class ReaderTest {
         System.out.println("length = " + length);
 
         // then
+    }
+
+    @Test
+    @DisplayName("BufferedReader.readLine()을 반복하면 여러 String을 읽을 수 있다.")
+    void test7() throws IOException {
+        // given
+        String input = "hello\nworld\nhi\n                                   \nhome";
+        ByteArrayInputStream in = new ByteArrayInputStream(input.getBytes());
+        InputStreamReader reader = new InputStreamReader(in);
+        BufferedReader br = new BufferedReader(reader);
+
+        // when
+        String[] result = new String[10];
+        String read;
+        int idx = 0;
+        while ((read = br.readLine()) != null && !read.isEmpty()) {
+            result[idx++] = read;
+        }
+        String str = IOUtils.readData(br, 4);
+
+        // then
+        assertEquals(result[0], "hello");
+        assertEquals(result[1], "world");
+        assertEquals(result[2], "hi");
+        assertEquals(result[3], "hi");
+        assertEquals(result[4], "hi");
+        assertEquals(result[5], "hi");
+        assertEquals(result[6], "hi");
+        assertEquals(result[7], "hi");
+        assertEquals("home", str);
     }
 }

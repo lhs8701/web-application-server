@@ -41,12 +41,5 @@ public class User {
         return "User [userId=" + userId + ", password=" + password + ", name=" + name + ", email=" + email + "]";
     }
 
-    public User(Map<String, String> params) {
-        String userId = params.get(USER_ID_FIELD);
-        String password = params.get(PASSWORD_FIELD);
-        String name = params.get(NAME_FIELD);
-        String email = params.get(EMAIL_FIELD);
-        User user = new User(userId, password, name, email);
-        DataBase.addUser(user);
-    }
+
 }

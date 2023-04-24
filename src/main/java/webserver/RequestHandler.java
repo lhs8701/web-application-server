@@ -4,11 +4,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import service.UserService;
 import util.HttpRequestUtils;
+import util.IOUtils;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.util.HashMap;
 import java.util.Map;
 
 public class RequestHandler extends Thread {
@@ -16,6 +19,7 @@ public class RequestHandler extends Thread {
     private static final String CONNECTED_MESSAGE = "New Client Connect! Connected IP : {}, Port : {}";
     private Socket connection;
     public static final String STATIC_DIR = "./webapp";
+    public static final String GENERAL = "general";
 
     public RequestHandler(Socket connectionSocket) {
         this.connection = connectionSocket;
@@ -34,21 +38,33 @@ public class RequestHandler extends Thread {
     }
 
     private byte[] resolveRequest(InputStream in) throws IOException {
-        return executeLogic(parse(extractUrl(in)));
+        BufferedReader br = new BufferedReader(new InputStreamReader(in));
+        Map<String, String> header = readHeader(br);
+        String[] element = parse(header.get(GENERAL));
+        RequestMethod requestMethod = RequestMethod.find(element[0]);
+        RequestUrl requestUrl = RequestUrl.find(element[1]);
+        Map<String, String> requestParams = HttpRequestUtils.parseQueryString(element[2]);
+
+        if (requestMethod == RequestMethod.GET) {
+            if (requestUrl == RequestUrl.EMPTY) {
+                return getStaticFile(element[1]);
+            }
+            return executeGet(requestUrl, requestParams);
+        }
+        Map<String, String> body = readBody(br, Integer.parseInt(header.get("Content-Length")));
+        return executePost(body, requestUrl, requestParams);
     }
 
-    private byte[] executeLogic(String[] element) throws IOException {
-        byte[] emptyBody = new byte[0];
-        RequestUrl requestUrl = RequestUrl.find(element[0], element[1]);
-        Map<String, String> requestParams = HttpRequestUtils.parseQueryString(element[2]);
-        if (requestUrl == RequestUrl.EMPTY) {
-            return getStaticFile(element[1]);
-        }
+    private byte[] executeGet(RequestUrl requestUrl, Map<String, String> requestParams) {
+        return new byte[0];
+    }
+
+    private byte[] executePost(Map<String, String> body, RequestUrl requestUrl, Map<String, String> requestParams) {
         if (requestUrl == RequestUrl.CREATE_USER) {
-            UserService.createUser(requestParams);
-            return emptyBody;
+            UserService.createUser(body);
+            return new byte[0];
         }
-        return emptyBody;
+        return new byte[0];
     }
 
     private String[] parse(String requestInfo) {
@@ -66,21 +82,42 @@ public class RequestHandler extends Thread {
         return result;
     }
 
-    private String extractUrl(InputStream in) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(in));
-        StringBuilder logMessage = new StringBuilder();
-        String firstLine = br.readLine();
-        logMessage.append(firstLine);
-        printLog(br, logMessage);
-        return firstLine;
+    private Map<String, String> readHeader(BufferedReader br) throws IOException {
+        Map<String, String> header = new HashMap<>();
+        readFirstLine(br, header);
+        readOtherLines(br, header);
+        return header;
     }
 
-    private void printLog(BufferedReader br, StringBuilder logMessage) throws IOException {
+    private void readFirstLine(BufferedReader br, Map<String, String> header) throws IOException {
+        String input = br.readLine();
+        log.info(input);
+        header.put(GENERAL, input);
+    }
+
+    private void readOtherLines(BufferedReader br, Map<String, String> header) throws IOException {
+        StringBuilder logMessage = new StringBuilder();
         String input;
         while ((input = br.readLine()) != null && !input.isEmpty()) {
+            fillHeaderMap(input, header);
             logMessage.append(input).append("\n");
         }
         log.info(logMessage.toString());
+    }
+
+    private void fillHeaderMap(String input, Map<String, String> header) {
+        int index = input.indexOf(":");
+        String key = input.substring(0, index);
+        String value = input.substring(index + 1).trim();
+        header.put(key, value);
+    }
+
+    private Map<String, String> readBody(BufferedReader br, int contentLength) throws IOException {
+        if (contentLength == 0) {
+            return null;
+        }
+        String data = IOUtils.readData(br, contentLength + 1);
+        return HttpRequestUtils.parseQueryString(data);
     }
 
     private byte[] getStaticFile(String url) throws IOException {

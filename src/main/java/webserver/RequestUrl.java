@@ -3,14 +3,12 @@ package webserver;
 import java.util.Arrays;
 
 public enum RequestUrl {
-    CREATE_USER("GET","/user/create"),
-    EMPTY("EMPTY", "");
+    CREATE_USER("/user/create"),
+    EMPTY("");
 
-    private final String method;
     private final String path;
 
-    RequestUrl(String method, String path) {
-        this.method = method;
+    RequestUrl( String path) {
         this.path = path;
     }
 
@@ -18,13 +16,9 @@ public enum RequestUrl {
         return this.path;
     }
 
-    public String getMethod() {
-        return method;
-    }
-
-    static RequestUrl find(String method, String path){
+    static RequestUrl find(String path){
         return Arrays.stream(RequestUrl.values())
-                .filter(e -> e.getMethod().equals(method) && e.getPath().equals(path))
+                .filter(e -> e.getPath().equals(path))
                 .findFirst()
                 .orElse(EMPTY);
     }
