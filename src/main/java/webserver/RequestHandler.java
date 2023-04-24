@@ -46,7 +46,7 @@ public class RequestHandler extends Thread {
         if (requestMethod == RequestMethod.GET) {
             if (requestUrl == RequestUrl.EMPTY) {
                 byte[] data = getStaticFile(element[1]);
-                response200Header(dos, data.length);
+                response200Header(dos, data.length, null);
                 responseBody(dos, data);
             }
             executeGet(requestUrl, requestParams, dos);
@@ -63,7 +63,16 @@ public class RequestHandler extends Thread {
     private void executePost(Map<String, String> body, RequestUrl requestUrl, Map<String, String> requestParams, DataOutputStream dos) {
         if (requestUrl == RequestUrl.CREATE_USER) {
             UserService.createUser(body);
-            response302Header(dos);
+            response302Header(dos, "/index.html", null);
+            return;
+        }
+        if (requestUrl == RequestUrl.LOGIN){
+            boolean success = UserService.login(body);
+            if (success){
+                response302Header(dos, "/index.html", "logined=true");
+                return;
+            }
+            response302Header(dos, "/user/login_failed.html", "logined=false");
         }
     }
 
@@ -128,23 +137,28 @@ public class RequestHandler extends Thread {
         }
     }
 
-    private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
+    private void response200Header(DataOutputStream dos, int lengthOfBodyContent, String cookie) {
         try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            if (cookie != null) {
+                dos.writeBytes("Set-Cookie: " + cookie + "\r\n");
+            }
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
 
-    private void response302Header(DataOutputStream dos) {
-        String redirect = "http://www.naver.com";
+    private void response302Header(DataOutputStream dos, String location, String cookie) {
         try {
             dos.writeBytes("HTTP/1.1 302 Temporarily Moved \r\n");
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
-            dos.writeBytes("Location : " + "/index.html" + "\r\n");
+            dos.writeBytes("Location : " + location + "\r\n");
+            if (cookie != null) {
+                dos.writeBytes("Set-Cookie: " + cookie + "\r\n");
+            }
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
