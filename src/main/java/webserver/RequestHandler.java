@@ -29,15 +29,13 @@ public class RequestHandler extends Thread {
         log.debug(CONNECTED_MESSAGE, connection.getInetAddress(), connection.getPort());
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = resolveRequest(in);
-            response200Header(dos, body.length);
-            responseBody(dos, body);
+            resolveRequest(in, dos);
         } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
 
-    private byte[] resolveRequest(InputStream in) throws IOException {
+    private void resolveRequest(InputStream in, DataOutputStream dos) throws IOException {
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
         Map<String, String> header = readHeader(br);
         String[] element = parse(header.get(GENERAL));
@@ -47,24 +45,26 @@ public class RequestHandler extends Thread {
 
         if (requestMethod == RequestMethod.GET) {
             if (requestUrl == RequestUrl.EMPTY) {
-                return getStaticFile(element[1]);
+                byte[] data = getStaticFile(element[1]);
+                response200Header(dos, data.length);
+                responseBody(dos, data);
             }
-            return executeGet(requestUrl, requestParams);
+            executeGet(requestUrl, requestParams, dos);
+            return;
         }
         Map<String, String> body = readBody(br, Integer.parseInt(header.get("Content-Length")));
-        return executePost(body, requestUrl, requestParams);
+        executePost(body, requestUrl, requestParams, dos);
     }
 
-    private byte[] executeGet(RequestUrl requestUrl, Map<String, String> requestParams) {
-        return new byte[0];
+    private void executeGet(RequestUrl requestUrl, Map<String, String> requestParams, DataOutputStream dos) {
+
     }
 
-    private byte[] executePost(Map<String, String> body, RequestUrl requestUrl, Map<String, String> requestParams) {
+    private void executePost(Map<String, String> body, RequestUrl requestUrl, Map<String, String> requestParams, DataOutputStream dos) {
         if (requestUrl == RequestUrl.CREATE_USER) {
             UserService.createUser(body);
-            return new byte[0];
+            response302Header(dos);
         }
-        return new byte[0];
     }
 
     private String[] parse(String requestInfo) {
@@ -133,6 +133,18 @@ public class RequestHandler extends Thread {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void response302Header(DataOutputStream dos) {
+        String redirect = "http://www.naver.com";
+        try {
+            dos.writeBytes("HTTP/1.1 302 Temporarily Moved \r\n");
+            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Location : " + "/index.html" + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
