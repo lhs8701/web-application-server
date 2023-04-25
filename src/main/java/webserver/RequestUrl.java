@@ -5,6 +5,7 @@ import java.util.Arrays;
 public enum RequestUrl {
     CREATE_USER("/user/create"),
     LOGIN("/user/login"),
+    LIST("/user/list"),
     EMPTY("");
 
     private final String path;

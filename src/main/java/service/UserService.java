@@ -6,7 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import webserver.RequestHandler;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class UserService {
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
@@ -29,5 +32,9 @@ public class UserService {
     public static boolean login(Map<String, String> body) {
         User user = DataBase.findUserById(body.get(USER_ID_FIELD));
         return user != null && user.getPassword().equals(body.get(PASSWORD_FIELD));
+    }
+
+    public static List<User> getUsers() {
+        return new ArrayList<>(DataBase.findAll());
     }
 }

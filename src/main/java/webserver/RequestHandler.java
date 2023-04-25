@@ -1,5 +1,6 @@
 package webserver;
 
+import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import service.UserService;
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class RequestHandler extends Thread {
@@ -36,7 +38,7 @@ public class RequestHandler extends Thread {
     }
 
     private void resolveRequest(InputStream in, DataOutputStream dos) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(in));
+        BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
         Map<String, String> header = readHeader(br);
         String[] element = parse(header.get(GENERAL));
         RequestMethod requestMethod = RequestMethod.find(element[0]);
@@ -49,15 +51,49 @@ public class RequestHandler extends Thread {
                 response200Header(dos, data.length, null);
                 responseBody(dos, data);
             }
-            executeGet(requestUrl, requestParams, dos);
+            executeGet(header, requestUrl, requestParams, dos);
             return;
         }
         Map<String, String> body = readBody(br, Integer.parseInt(header.get("Content-Length")));
         executePost(body, requestUrl, requestParams, dos);
     }
 
-    private void executeGet(RequestUrl requestUrl, Map<String, String> requestParams, DataOutputStream dos) {
+    private void executeGet(Map<String, String> header, RequestUrl requestUrl, Map<String, String> requestParams, DataOutputStream dos) {
+        if (requestUrl == RequestUrl.LIST) {
+            Map<String, String> cookies = HttpRequestUtils.parseCookies(header.get("Cookie"));
+            if (cookies != null && Boolean.parseBoolean(cookies.get("logined"))) {
+                byte[] data = getUserList();
+                response200Header(dos, data.length, null);
+                responseBody(dos, data);
+                return;
+            }
+            response302Header(dos, "/user/login.html", null);
+        }
+    }
 
+    private byte[] getUserList() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!DOCTYPE html");
+        sb.append("<html lang=\"ko\">");
+        sb.append("<head>");
+        sb.append("<meta charset=\"UTF-8\">");
+        sb.append(" <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+        sb.append("<title> 사용자 목록 </title>");
+        sb.append("</head>");
+        sb.append("<body>");
+        sb.append("<h1>사용자 목록</h1>");
+        List<User> users = UserService.getUsers();
+        for (User user : users) {
+            sb.append("<div>");
+            sb.append("아이디 : " + user.getUserId() + "<br>");
+            sb.append("이름 : " + user.getName() + "<br>");
+            sb.append("이메일 : " + user.getEmail() + "<br>");
+            sb.append("</div>");
+            sb.append("<br>");
+        }
+        sb.append("</body>");
+        sb.append("</html>");
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private void executePost(Map<String, String> body, RequestUrl requestUrl, Map<String, String> requestParams, DataOutputStream dos) {
@@ -66,9 +102,9 @@ public class RequestHandler extends Thread {
             response302Header(dos, "/index.html", null);
             return;
         }
-        if (requestUrl == RequestUrl.LOGIN){
+        if (requestUrl == RequestUrl.LOGIN) {
             boolean success = UserService.login(body);
-            if (success){
+            if (success) {
                 response302Header(dos, "/index.html", "logined=true");
                 return;
             }
@@ -126,6 +162,7 @@ public class RequestHandler extends Thread {
             return null;
         }
         String data = IOUtils.readData(br, contentLength + 1);
+        log.info(data);
         return HttpRequestUtils.parseQueryString(data);
     }
 
