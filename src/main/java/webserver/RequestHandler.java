@@ -48,7 +48,10 @@ public class RequestHandler extends Thread {
         if (requestMethod == RequestMethod.GET) {
             if (requestUrl == RequestUrl.EMPTY) {
                 byte[] data = getStaticFile(element[1]);
-                response200Header(dos, data.length, null);
+                if (header.get("Accept").contains("text/css")) {
+                    response200Header(dos, data.length, null, "text/css");
+                }
+                response200Header(dos, data.length, null, "text/html");
                 responseBody(dos, data);
             }
             executeGet(header, requestUrl, requestParams, dos);
@@ -63,7 +66,7 @@ public class RequestHandler extends Thread {
             Map<String, String> cookies = HttpRequestUtils.parseCookies(header.get("Cookie"));
             if (cookies != null && Boolean.parseBoolean(cookies.get("logined"))) {
                 byte[] data = getUserList();
-                response200Header(dos, data.length, null);
+                response200Header(dos, data.length, null, "text/html");
                 responseBody(dos, data);
                 return;
             }
@@ -174,10 +177,10 @@ public class RequestHandler extends Thread {
         }
     }
 
-    private void response200Header(DataOutputStream dos, int lengthOfBodyContent, String cookie) {
+    private void response200Header(DataOutputStream dos, int lengthOfBodyContent, String cookie, String contentType) {
         try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Content-Type: " + contentType + ";charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
             if (cookie != null) {
                 dos.writeBytes("Set-Cookie: " + cookie + "\r\n");

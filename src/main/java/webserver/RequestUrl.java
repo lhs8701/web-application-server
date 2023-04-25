@@ -10,18 +10,18 @@ public enum RequestUrl {
 
     private final String path;
 
-    RequestUrl( String path) {
+    RequestUrl(String path) {
         this.path = path;
     }
 
-    public String getPath(){
+    public String getPath() {
         return this.path;
     }
 
-    static RequestUrl find(String path){
+    static RequestUrl find(String path) {
         return Arrays.stream(RequestUrl.values())
                 .filter(e -> e.getPath().equals(path))
                 .findFirst()
                 .orElse(EMPTY);
     }
-}
+    }
