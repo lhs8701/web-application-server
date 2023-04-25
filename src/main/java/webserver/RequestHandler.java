@@ -46,32 +46,45 @@ public class RequestHandler extends Thread {
         Map<String, String> requestParams = HttpRequestUtils.parseQueryString(element[2]);
 
         if (requestMethod == RequestMethod.GET) {
-            if (requestUrl == RequestUrl.EMPTY) {
-                byte[] data = getStaticFile(element[1]);
-                if (header.get("Accept").contains("text/css")) {
-                    response200Header(dos, data.length, null, "text/css");
-                }
-                response200Header(dos, data.length, null, "text/html");
-                responseBody(dos, data);
-            }
-            executeGet(header, requestUrl, requestParams, dos);
+            executeGet(header, requestUrl, requestParams, element[1], dos);
             return;
         }
         Map<String, String> body = readBody(br, Integer.parseInt(header.get("Content-Length")));
         executePost(body, requestUrl, requestParams, dos);
     }
 
-    private void executeGet(Map<String, String> header, RequestUrl requestUrl, Map<String, String> requestParams, DataOutputStream dos) {
-        if (requestUrl == RequestUrl.LIST) {
-            Map<String, String> cookies = HttpRequestUtils.parseCookies(header.get("Cookie"));
-            if (cookies != null && Boolean.parseBoolean(cookies.get("logined"))) {
-                byte[] data = getUserList();
-                response200Header(dos, data.length, null, "text/html");
-                responseBody(dos, data);
-                return;
-            }
-            response302Header(dos, "/user/login.html", null);
+    private void executeGet(Map<String, String> header, RequestUrl requestUrl, Map<String, String> requestParams, String path, DataOutputStream dos) throws IOException {
+        if (requestUrl == RequestUrl.EMPTY) {
+            staticFileController(header, path, dos);
+            return;
         }
+        if (requestUrl == RequestUrl.LIST) {
+            getUserListController(header, dos);
+        }
+    }
+
+    private void getUserListController(Map<String, String> header, DataOutputStream dos) {
+        Map<String, String> cookies = HttpRequestUtils.parseCookies(header.get("Cookie"));
+        if (cookies != null && Boolean.parseBoolean(cookies.get("logined"))) {
+            byte[] data = getUserList();
+            response200Header(dos, data.length, null, getContentType(header));
+            responseBody(dos, data);
+            return;
+        }
+        response302Header(dos, "/user/login.html", null);
+    }
+
+    private void staticFileController(Map<String, String> header, String path, DataOutputStream dos) throws IOException {
+        byte[] data = getStaticFile(path);
+        response200Header(dos, data.length, null, getContentType(header));
+        responseBody(dos, data);
+    }
+
+    private String getContentType(Map<String, String> header) {
+        if (header.get("Accept").contains("text/css")) {
+            return "text/css";
+        }
+        return "text/html";
     }
 
     private byte[] getUserList() {
@@ -86,6 +99,13 @@ public class RequestHandler extends Thread {
         sb.append("<body>");
         sb.append("<h1>사용자 목록</h1>");
         List<User> users = UserService.getUsers();
+        injectData(sb, users);
+        sb.append("</body>");
+        sb.append("</html>");
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private void injectData(StringBuilder sb, List<User> users) {
         for (User user : users) {
             sb.append("<div>");
             sb.append("아이디 : " + user.getUserId() + "<br>");
@@ -94,25 +114,30 @@ public class RequestHandler extends Thread {
             sb.append("</div>");
             sb.append("<br>");
         }
-        sb.append("</body>");
-        sb.append("</html>");
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private void executePost(Map<String, String> body, RequestUrl requestUrl, Map<String, String> requestParams, DataOutputStream dos) {
         if (requestUrl == RequestUrl.CREATE_USER) {
-            UserService.createUser(body);
-            response302Header(dos, "/index.html", null);
+            createUserController(body, dos);
             return;
         }
         if (requestUrl == RequestUrl.LOGIN) {
-            boolean success = UserService.login(body);
-            if (success) {
-                response302Header(dos, "/index.html", "logined=true");
-                return;
-            }
-            response302Header(dos, "/user/login_failed.html", "logined=false");
+            loginController(body, dos);
         }
+    }
+
+    private void loginController(Map<String, String> body, DataOutputStream dos) {
+        boolean success = UserService.login(body);
+        if (success) {
+            response302Header(dos, "/index.html", "logined=true");
+            return;
+        }
+        response302Header(dos, "/user/login_failed.html", "logined=false");
+    }
+
+    private void createUserController(Map<String, String> body, DataOutputStream dos) {
+        UserService.createUser(body);
+        response302Header(dos, "/index.html", null);
     }
 
     private String[] parse(String requestInfo) {
@@ -165,7 +190,6 @@ public class RequestHandler extends Thread {
             return null;
         }
         String data = IOUtils.readData(br, contentLength + 1);
-        log.info(data);
         return HttpRequestUtils.parseQueryString(data);
     }
 
